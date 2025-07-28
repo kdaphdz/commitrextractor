@@ -1,0 +1,1 @@
+https://github.com/vinta/awesome-python?tab=readme-ov-file#build-tools

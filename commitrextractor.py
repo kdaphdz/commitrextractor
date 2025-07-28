@@ -111,7 +111,7 @@ def copy_repo_files(src_root, dst_root):
 def process_commits(original_repo, remote_repo, commits, workflow_content, workflow_file_name, default_branch):
     workflows_dir = os.path.join(original_repo.working_tree_dir, WORKFLOWS_SUBDIR)
     for commit in commits:
-        logger.info(f"Processing commit {commit.hexsha}: {commit.message.strip()}")
+        logger.info(f"Processing commit {commit.hexsha}")
         original_repo.git.checkout(commit.hexsha)
 
         clear_workflows_directory(workflows_dir)
@@ -166,6 +166,9 @@ def main():
         commits.reverse()
 
         process_commits(original_repo, remote_repo, commits, workflow_content, workflow_file_name, default_branch)
+
+        original_repo.close()
+        remote_repo.close()
 
 if __name__ == "__main__":
     main()
