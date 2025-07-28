@@ -1,0 +1,65 @@
+name: Benchmark
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  Run_benchmarks:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Benchmark Repo
+        uses: actions/checkout@v4
+        with:
+          repository: django/django-asv
+          path: "."
+
+      - name: Checkout EcOps action
+        uses: actions/checkout@v4
+        with:
+          repository: CarlosPHN/EcOps
+          token: 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
+          path: ecops-action
+
+      - name: Setup Miniforge
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: "24.1.2-0"
+          activate-environment: asv-bench
+
+      - name: Install Requirements
+        run: pip install -r requirements.txt
+
+      - name: Cache Django
+        uses: actions/cache@v3
+        with:
+          path: Django/*
+          key: Django
+
+      - name: Start EcOps Measurement
+        uses: ./ecops-action
+        with:
+          method: start_measurement
+          args: perf power/energy-cores/ power/energy-pkg/ 50
+
+      - name: Run Benchmarks
+        shell: bash -l {0}
+        run: |-
+          asv machine --machine ubuntu-latest --yes > /dev/null
+          echo 'Beginning benchmarks...'
+          asv continuous --interleave-processes -a processes=2 --split --show-stderr 'HEAD^' 'HEAD' |\
+          sed -n -E '/(before.*after.*ratio)|(BENCHMARKS)/,$p' >> out.txt
+          echo 'Benchmarks Done.'
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat out.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if grep -q "PERFORMANCE DECREASED" out.txt;
+          then
+            exit 1
+          fi
+
+      - name: End EcOps Measurement
+        uses: ./ecops-action
+        with:
+          method: end_measurement
