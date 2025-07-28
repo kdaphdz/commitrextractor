@@ -1,0 +1,60 @@
+name: "build"
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+          allow-prereleases: true
+
+      - name: Checkout EcOps action
+        uses: actions/checkout@v4
+        with:
+          repository: CarlosPHN/EcOps
+          token: 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
+          path: ecops-action
+
+      - name: Start EcOps Measurement
+        uses: ./ecops-action
+        with:
+          method: start_measurement
+          args: perf power/energy-cores/ power/energy-pkg/ 50
+
+      - run: uv sync --group=test
+
+      - name: Run tests
+        run: uv run pytest
+          --ignore=computer_vision/cnn_classification.py
+          --ignore=docs/conf.py
+          --ignore=dynamic_programming/k_means_clustering_tensorflow.py
+          --ignore=machine_learning/lstm/lstm_prediction.py
+          --ignore=neural_network/input_data.py
+          --ignore=project_euler/
+          --ignore=quantum/q_fourier_transform.py
+          --ignore=scripts/validate_solutions.py
+          --ignore=web_programming/fetch_anime_and_play.py
+          --cov-report=term-missing:skip-covered
+          --cov=. .
+
+      - name: End EcOps Measurement
+        if: always()
+        uses: ./ecops-action
+        with:
+          method: end_measurement
+
+      - if: ${{ success() }}
+        run: scripts/build_directory_md.py 2>&1 | tee DIRECTORY.md
