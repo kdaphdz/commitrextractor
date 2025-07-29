@@ -23,9 +23,12 @@ def parse_args():
     parser.add_argument("--token", required=True, help="GitHub personal access token")
     return parser.parse_args()
 
-def read_file(path):
+def read_file(path, token=None):
     with open(path, "r") as f:
-        return f.read().strip()
+        content = f.read().strip()
+        if token:
+            content = content.replace("${{TOKEN}}", token)
+        return content
 
 def create_repo_if_not_exists(org, repo_name, token):
     logger.info(f"Checking if repository '{repo_name}' exists in organization '{org}'...")
@@ -147,7 +150,7 @@ def main():
             repo_url = read_file(os.path.join(repo_path, "repo_url.txt"))
             workflow_file_name = read_file(os.path.join(repo_path, "workflow_file.txt"))
             workflow_path = os.path.join(repo_path, workflow_file_name)
-            workflow_content = read_file(workflow_path)
+            workflow_content = read_file(workflow_path, token=GITHUB_TOKEN)
         except Exception as e:
             logger.error(f"Skipping repo {repo_dir} due to error reading files: {e}")
             continue

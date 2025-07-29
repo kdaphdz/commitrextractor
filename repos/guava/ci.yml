@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: CarlosPHN/EcOps
-          token: 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
+          token: ${{TOKEN}}
           path: ecops-action
 
       - name: Start EcOps Measurement
@@ -80,7 +80,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: CarlosPHN/EcOps
-          token: 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
+          token: ${{TOKEN}}
           path: ecops-action
 
       - name: End EcOps Measurement
