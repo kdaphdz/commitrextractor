@@ -62,7 +62,27 @@ def clone_or_update_local_repo(url, path):
     else:
         logger.info(f"Local repository at '{path}' already exists.")
 
-def clone_or_update_remote_repo(url, path, default_branch):
+def is_remote_repo_empty(remote_repo_url, token):
+    """
+    Check if the remote repo has any commits by querying its refs.
+    """
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+    }
+    # List branches to check if any exist
+    repo_api_url = remote_repo_url.replace("https://"+token+"@", "https://api.github.com/repos/").replace(".git","")
+    response = requests.get(f"{repo_api_url}/branches", headers=headers)
+    if response.status_code == 200:
+        branches = response.json()
+        if len(branches) == 0:
+            return True
+        return False
+    else:
+        logger.warning(f"Couldn't determine if remote repo is empty, assuming not empty: {response.status_code} {response.text}")
+        return False
+
+def clone_or_update_remote_repo(url, path, default_branch, token):
     if os.path.exists(path):
         logger.info(f"Remote repository at '{path}' exists.")
         repo = git.Repo(path)
@@ -70,17 +90,36 @@ def clone_or_update_remote_repo(url, path, default_branch):
             logger.info("Trying to pull latest changes...")
             repo.remotes.origin.pull()
         except git.exc.GitCommandError as e:
+            # Si repo remoto está vacío o sin default branch
             if any(msg in str(e) for msg in ["Couldn't find remote ref", "fatal: couldn't find remote ref", "error: could not fetch"]):
                 logger.warning("Remote repository empty or no default branch yet, skipping pull.")
             else:
                 raise
     else:
         logger.info(f"Cloning remote repository from {url} into {path}...")
-        repo = git.Repo.clone_from(url, path)
+        # Antes de clonar chequeamos si repo remoto está vacío
+        if is_remote_repo_empty(url, token):
+            logger.info("Remote repository is empty, creando repo local vacío.")
+            # Crear repo vacío local
+            repo = git.Repo.init(path)
+            # Agregar remoto
+            repo.create_remote('origin', url)
+        else:
+            repo = git.Repo.clone_from(url, path)
 
+    # Verificamos si la rama existe localmente
     if default_branch not in repo.heads:
-        logger.info(f"Creating local branch '{default_branch}' in remote repo clone.")
+        logger.info(f"Local branch '{default_branch}' no existe. Creándola.")
         repo.git.checkout('-b', default_branch)
+        # Si el repo está vacío, hacemos commit inicial para evitar errores push
+        if not repo.head.is_valid():
+            readme_path = os.path.join(path, "README.md")
+            with open(readme_path, "w") as f:
+                f.write(f"# {os.path.basename(path)}\nRepositorio inicializado automáticamente.")
+            repo.index.add([readme_path])
+            repo.index.commit("Initial commit")
+            logger.info("Commit inicial creado en repositorio vacío.")
+            repo.git.push('--set-upstream', 'origin', default_branch)
     else:
         repo.git.checkout(default_branch)
 
@@ -165,7 +204,7 @@ def main():
         default_branch_ref = original_repo.git.symbolic_ref('refs/remotes/origin/HEAD')
         default_branch = default_branch_ref.split('/')[-1]
 
-        remote_repo = clone_or_update_remote_repo(remote_repo_url, remote_repo_path, default_branch)
+        remote_repo = clone_or_update_remote_repo(remote_repo_url, remote_repo_path, default_branch, GITHUB_TOKEN)
 
         commits = list(original_repo.iter_commits(default_branch, max_count=MAX_COMMITS))
         commits.reverse()
