@@ -11,18 +11,14 @@ env:
 jobs:
   build:
     runs-on: self-hosted
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.11']
 
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: 3.11
         allow-prereleases: true
         cache: pip
         cache-dependency-path: tox.ini
@@ -46,8 +42,7 @@ jobs:
         args: perf power/energy-cores/ power/energy-pkg/ 50
 
     - name: Tests
-      run: |
-          tox -e py
+      run: tox -e py
 
     - name: End EcOps Measurement
       if: always()
@@ -58,4 +53,4 @@ jobs:
     - name: Upload coverage
       uses: codecov/codecov-action@v3
       with:
-        name: Python ${{ matrix.python-version }}
+        name: Python 3.11

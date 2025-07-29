@@ -15,13 +15,6 @@ jobs:
           repository: django/django-asv
           path: "."
 
-      - name: Checkout EcOps action
-        uses: actions/checkout@v4
-        with:
-          repository: CarlosPHN/EcOps
-          token: ${{TOKEN}}
-          path: ecops-action
-
       - name: Setup Miniforge
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -36,6 +29,13 @@ jobs:
         with:
           path: Django/*
           key: Django
+
+      - name: Checkout EcOps action
+        uses: actions/checkout@v4
+        with:
+          repository: CarlosPHN/EcOps
+          token: ${{TOKEN}}
+          path: ecops-action
 
       - name: Start EcOps Measurement
         uses: ./ecops-action
