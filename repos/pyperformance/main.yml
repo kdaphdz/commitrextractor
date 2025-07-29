@@ -32,6 +32,26 @@ jobs:
         python -VV
         python -c 'import sysconfig; print("Free threading?", "Yes" if sysconfig.get_config_var("Py_GIL_DISABLED") else "No")'
 
+    - name: Checkout EcOps action
+      uses: actions/checkout@v4
+      with:
+        repository: CarlosPHN/EcOps
+        token: ${{TOKEN}}
+        path: ecops-action
+
+    - name: Start EcOps Measurement
+      if: always()
+      uses: ./ecops-action
+      with:
+        method: start_measurement
+        args: perf power/energy-cores/ power/energy-pkg/ 50
+
     - name: Run Tests
       id: pyperformance
       run: python -u -m pyperformance.tests
+
+    - name: End EcOps Measurement
+      if: always()
+      uses: ./ecops-action
+      with:
+        method: end_measurement
