@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 REPOS_DIR = "repos"
 WORKFLOWS_SUBDIR = os.path.join(".github", "workflows")
-MAX_COMMITS = 10
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Script to manage repos and workflows")
@@ -113,22 +112,27 @@ def copy_repo_files(src_root, dst_root):
         for file in files:
             shutil.copy2(os.path.join(root, file), os.path.join(dest_path, file))
 
-def process_commits(original_repo, remote_repo, commits, workflow_content, workflow_file_name, default_branch):
+def process_commits(original_repo, remote_repo, commits, workflow_content, workflow_file_name, default_branch, log_file_path):
     workflows_dir = os.path.join(original_repo.working_tree_dir, WORKFLOWS_SUBDIR)
-    for commit in commits:
-        logger.info(f"Processing commit {commit.hexsha}")
-        original_repo.git.reset('--hard')
-        original_repo.git.clean('-fd')
-        original_repo.git.checkout(commit.hexsha)
-        clear_workflows_directory(workflows_dir)
-        workflow_path = os.path.join(workflows_dir, workflow_file_name)
-        with open(workflow_path, "w") as f:
-            f.write(workflow_content)
-        copy_repo_files(original_repo.working_tree_dir, remote_repo.working_tree_dir)
-        remote_repo.git.add(all=True)
-        remote_repo.index.commit(f"commitrextractor for commit {commit.hexsha}")
-        logger.info(f"Pushing changes to remote repository '{remote_repo.working_tree_dir}' on branch '{default_branch}'...")
-        remote_repo.git.push('origin', default_branch)
+
+    with open(log_file_path, "a") as log_file:
+        for commit in commits:
+            logger.info(f"Processing commit {commit.hexsha}")
+            original_repo.git.reset('--hard')
+            original_repo.git.clean('-fd')
+            original_repo.git.checkout(commit.hexsha)
+            clear_workflows_directory(workflows_dir)
+            workflow_path = os.path.join(workflows_dir, workflow_file_name)
+            with open(workflow_path, "w") as f:
+                f.write(workflow_content)
+            copy_repo_files(original_repo.working_tree_dir, remote_repo.working_tree_dir)
+            remote_repo.git.add(all=True)
+            remote_repo.index.commit(f"commitrextractor for commit {commit.hexsha}")
+            logger.info(f"Pushing changes to remote repository '{remote_repo.working_tree_dir}' on branch '{default_branch}'...")
+            remote_repo.git.push('origin', default_branch)
+            commit_info = f"{default_branch} | {commit.hexsha} | {commit.committed_datetime.isoformat()}\n"
+            log_file.write(commit_info)
+
     original_repo.git.checkout(default_branch)
     logger.info(f"Checked out original repository back to default branch '{default_branch}'.")
 
@@ -145,9 +149,11 @@ def main():
             workflow_file_name = read_file(os.path.join(repo_path, "workflow_file.txt"))
             workflow_path = os.path.join(repo_path, workflow_file_name)
             workflow_content = read_file(workflow_path, token=GITHUB_TOKEN)
+            max_commits = int(read_file(os.path.join(repo_path, "commits.txt")))
         except Exception as e:
             logger.error(f"Skipping repo {repo_dir} due to error reading files: {e}")
             continue
+
         repo_base_name = os.path.basename(repo_url.rstrip("/")).replace(".git", "")
         local_repo_path = os.path.join(repo_path, f"local_repo_{repo_base_name}")
         remote_repo_name = f"{repo_base_name}_commitrextractor"
@@ -159,9 +165,13 @@ def main():
         default_branch_ref = original_repo.git.symbolic_ref('refs/remotes/origin/HEAD')
         default_branch = default_branch_ref.split('/')[-1]
         remote_repo = clone_or_update_remote_repo(remote_repo_url, remote_repo_path, default_branch)
-        commits = list(original_repo.iter_commits(default_branch, max_count=MAX_COMMITS))
+
+        commits = list(original_repo.iter_commits(default_branch, max_count=max_commits))
         commits.reverse()
-        process_commits(original_repo, remote_repo, commits, workflow_content, workflow_file_name, default_branch)
+
+        log_file_path = os.path.join(repo_path, "extracted_commits.log")
+        process_commits(original_repo, remote_repo, commits, workflow_content, workflow_file_name, default_branch, log_file_path)
+
         original_repo.close()
         remote_repo.close()
 
