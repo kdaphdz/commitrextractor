@@ -9,7 +9,24 @@ permissions:
   contents: read
 
 jobs:
+  start_measurement:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout EcOps action
+        uses: actions/checkout@v4
+        with:
+          repository: CarlosPHN/EcOps
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: ecops-action
+
+      - name: Start EcOps Measurement
+        uses: ./ecops-action
+        with:
+          method: start_measurement
+          args: perf power/energy-cores/ power/energy-pkg/ 50
+
   test:
+    needs: start_measurement
     permissions:
       actions: write
       contents: read
@@ -26,10 +43,12 @@ jobs:
       - name: 'Check out repository'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: 'Set up JDK 21'
+      - name: 'Set up JDKs 21 and 24'
         uses: actions/setup-java@v4
         with:
-          java-version: 21
+          java-version: |
+            21
+            24
           distribution: temurin
           cache: maven
 
@@ -52,3 +71,19 @@ jobs:
       - name: 'Integration Test'
         shell: bash
         run: util/gradle_integration_tests.sh
+
+  end_measurement:
+    needs: test
+    runs-on: self-hosted
+    steps:
+      - name: Checkout EcOps action
+        uses: actions/checkout@v4
+        with:
+          repository: CarlosPHN/EcOps
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: ecops-action
+
+      - name: End EcOps Measurement
+        uses: ./ecops-action
+        with:
+          method: end_measurement
