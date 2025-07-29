@@ -30,20 +30,6 @@ jobs:
           path: Django/*
           key: Django
 
-      - name: Checkout EcOps action
-        uses: actions/checkout@v4
-        with:
-          repository: CarlosPHN/EcOps
-          token: ${{TOKEN}}
-          path: ecops-action
-
-      - name: Start EcOps Measurement
-        if: always()
-        uses: ./ecops-action
-        with:
-          method: start_measurement
-          args: perf power/energy-cores/ power/energy-pkg/ 50
-
       - name: Run Benchmarks
         shell: bash -l {0}
         run: |-
@@ -59,9 +45,3 @@ jobs:
           then
             exit 1
           fi
-
-      - name: End EcOps Measurement
-        if: always()
-        uses: ./ecops-action
-        with:
-          method: end_measurement
