@@ -8,8 +8,6 @@ on:
 jobs:
   test:
     runs-on: self-hosted
-    permissions:
-      pull-requests: write
     name: self-hosted - Python 3.10
     strategy:
       fail-fast: false
