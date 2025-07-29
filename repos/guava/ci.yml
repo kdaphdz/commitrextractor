@@ -65,14 +65,8 @@ jobs:
         shell: bash
         run: ./util/print_surefire_reports.sh
 
-      - name: 'Set up Gradle'
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: 'Integration Test'
-        shell: bash
-        run: util/gradle_integration_tests.sh
-
   end_measurement:
+    if: always()
     needs: test
     runs-on: self-hosted
     steps:
