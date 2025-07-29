@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 REPOS_DIR = "repos"
 WORKFLOWS_SUBDIR = os.path.join(".github", "workflows")
-MAX_COMMITS = 10
+MAX_COMMITS = 5
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Script to manage repos and workflows")
@@ -117,21 +117,18 @@ def process_commits(original_repo, remote_repo, commits, workflow_content, workf
     workflows_dir = os.path.join(original_repo.working_tree_dir, WORKFLOWS_SUBDIR)
     for commit in commits:
         logger.info(f"Processing commit {commit.hexsha}")
+        original_repo.git.reset('--hard')
+        original_repo.git.clean('-fd')
         original_repo.git.checkout(commit.hexsha)
-
         clear_workflows_directory(workflows_dir)
-
         workflow_path = os.path.join(workflows_dir, workflow_file_name)
         with open(workflow_path, "w") as f:
             f.write(workflow_content)
-
         copy_repo_files(original_repo.working_tree_dir, remote_repo.working_tree_dir)
-
         remote_repo.git.add(all=True)
         remote_repo.index.commit(f"commitrextractor for commit {commit.hexsha}")
         logger.info(f"Pushing changes to remote repository '{remote_repo.working_tree_dir}' on branch '{default_branch}'...")
         remote_repo.git.push('origin', default_branch)
-
     original_repo.git.checkout(default_branch)
     logger.info(f"Checked out original repository back to default branch '{default_branch}'.")
 
@@ -139,13 +136,10 @@ def main():
     args = parse_args()
     ORG = args.org
     GITHUB_TOKEN = args.token
-
     repo_dirs = [d for d in os.listdir(REPOS_DIR) if os.path.isdir(os.path.join(REPOS_DIR, d))]
-
     for repo_dir in repo_dirs:
         repo_path = os.path.join(REPOS_DIR, repo_dir)
         logger.info(f"Starting processing for repo folder: {repo_dir}")
-
         try:
             repo_url = read_file(os.path.join(repo_path, "repo_url.txt"))
             workflow_file_name = read_file(os.path.join(repo_path, "workflow_file.txt"))
@@ -154,27 +148,20 @@ def main():
         except Exception as e:
             logger.error(f"Skipping repo {repo_dir} due to error reading files: {e}")
             continue
-
         repo_base_name = os.path.basename(repo_url.rstrip("/")).replace(".git", "")
         local_repo_path = os.path.join(repo_path, f"local_repo_{repo_base_name}")
         remote_repo_name = f"{repo_base_name}_commitrextractor"
         remote_repo_path = os.path.join(repo_path, f"remote_repo_{repo_base_name}")
         remote_repo_url = f"https://{GITHUB_TOKEN}@github.com/{ORG}/{remote_repo_name}.git"
-
         create_repo_if_not_exists(ORG, remote_repo_name, GITHUB_TOKEN)
         clone_or_update_local_repo(repo_url, local_repo_path)
-
         original_repo = git.Repo(local_repo_path)
         default_branch_ref = original_repo.git.symbolic_ref('refs/remotes/origin/HEAD')
         default_branch = default_branch_ref.split('/')[-1]
-
         remote_repo = clone_or_update_remote_repo(remote_repo_url, remote_repo_path, default_branch)
-
         commits = list(original_repo.iter_commits(default_branch, max_count=MAX_COMMITS))
         commits.reverse()
-
         process_commits(original_repo, remote_repo, commits, workflow_content, workflow_file_name, default_branch)
-
         original_repo.close()
         remote_repo.close()
 
