@@ -5,7 +5,7 @@ logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
 ORG = "kdaphdz"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "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"
 
 HEADERS = {
     "Authorization": f"token {GITHUB_TOKEN}",

@@ -1,3 +1,4 @@
+import argparse
 import os
 import stat
 import shutil
@@ -16,8 +17,11 @@ REPOS_DIR = "repos"
 WORKFLOWS_SUBDIR = os.path.join(".github", "workflows")
 MAX_COMMITS = 1
 
-ORG = "kdaphdz"
-GITHUB_TOKEN = "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"
+def parse_args():
+    parser = argparse.ArgumentParser(description="Script to manage repos and workflows")
+    parser.add_argument("--org", required=True, help="GitHub organization name")
+    parser.add_argument("--token", required=True, help="GitHub personal access token")
+    return parser.parse_args()
 
 def read_file(path):
     with open(path, "r") as f:
@@ -66,8 +70,7 @@ def clone_or_update_remote_repo(url, path, default_branch):
             logger.info("Trying to pull latest changes...")
             repo.remotes.origin.pull()
         except git.exc.GitCommandError as e:
-            # Si el repo remoto está vacío o no tiene ramas, git pull falla
-            if "Couldn't find remote ref" in str(e) or "fatal: couldn't find remote ref" in str(e) or "error: could not fetch" in str(e):
+            if any(msg in str(e) for msg in ["Couldn't find remote ref", "fatal: couldn't find remote ref", "error: could not fetch"]):
                 logger.warning("Remote repository empty or no default branch yet, skipping pull.")
             else:
                 raise
@@ -75,7 +78,6 @@ def clone_or_update_remote_repo(url, path, default_branch):
         logger.info(f"Cloning remote repository from {url} into {path}...")
         repo = git.Repo.clone_from(url, path)
 
-    # Asegurar que la rama por defecto exista localmente y hacer checkout
     if default_branch not in repo.heads:
         logger.info(f"Creating local branch '{default_branch}' in remote repo clone.")
         repo.git.checkout('-b', default_branch)
@@ -116,8 +118,8 @@ def process_commits(original_repo, remote_repo, commits, workflow_content, workf
 
         clear_workflows_directory(workflows_dir)
 
-        benchmark_path = os.path.join(workflows_dir, workflow_file_name)
-        with open(benchmark_path, "w") as f:
+        workflow_path = os.path.join(workflows_dir, workflow_file_name)
+        with open(workflow_path, "w") as f:
             f.write(workflow_content)
 
         copy_repo_files(original_repo.working_tree_dir, remote_repo.working_tree_dir)
@@ -131,6 +133,10 @@ def process_commits(original_repo, remote_repo, commits, workflow_content, workf
     logger.info(f"Checked out original repository back to default branch '{default_branch}'.")
 
 def main():
+    args = parse_args()
+    ORG = args.org
+    GITHUB_TOKEN = args.token
+
     repo_dirs = [d for d in os.listdir(REPOS_DIR) if os.path.isdir(os.path.join(REPOS_DIR, d))]
 
     for repo_dir in repo_dirs:
@@ -156,7 +162,6 @@ def main():
         clone_or_update_local_repo(repo_url, local_repo_path)
 
         original_repo = git.Repo(local_repo_path)
-        # Detectar la rama por defecto (ejemplo: 'main' o 'master')
         default_branch_ref = original_repo.git.symbolic_ref('refs/remotes/origin/HEAD')
         default_branch = default_branch_ref.split('/')[-1]
 
