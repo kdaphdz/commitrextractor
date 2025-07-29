@@ -41,7 +41,7 @@ def create_repo_if_not_exists(org, repo_name, token):
     logger.info("Repository does not exist. Creating...")
     data = {
         "name": repo_name,
-        "private": False,
+        "private": True,
         "auto_init": False,
     }
     response = requests.post(f"https://api.github.com/orgs/{org}/repos", headers=headers, json=data)
