@@ -7,7 +7,7 @@ import shutil
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
-REPOS_DIR = "repos"  # Carpeta donde están los repos locales
+REPOS_DIR = "repos"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Delete GitHub repos and local copies")
@@ -48,6 +48,9 @@ def delete_local_dirs(repo_dir):
         if os.path.isdir(full_path) and (name.startswith("local_repo_") or name.startswith("remote_repo_")):
             logger.info(f"Deleting local folder: {full_path}")
             shutil.rmtree(full_path, ignore_errors=True)
+        elif name == "extracted_commits.log" and os.path.isfile(full_path):
+            logger.info(f"Deleting log file: {full_path}")
+            os.remove(full_path)
 
 def main():
     args = parse_args()
