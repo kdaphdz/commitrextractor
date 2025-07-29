@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 REPOS_DIR = "repos"
 WORKFLOWS_SUBDIR = os.path.join(".github", "workflows")
-MAX_COMMITS = 1
+MAX_COMMITS = 3
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Script to manage repos and workflows")
