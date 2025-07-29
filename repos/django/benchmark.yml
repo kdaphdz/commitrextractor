@@ -38,6 +38,7 @@ jobs:
           path: ecops-action
 
       - name: Start EcOps Measurement
+        if: always()
         uses: ./ecops-action
         with:
           method: start_measurement
@@ -60,6 +61,7 @@ jobs:
           fi
 
       - name: End EcOps Measurement
+        if: always()
         uses: ./ecops-action
         with:
           method: end_measurement
